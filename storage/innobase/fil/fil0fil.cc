@@ -11039,10 +11039,14 @@ static bool fil_op_replay_rename(const page_id_t &page_id,
 
   ut_ad(!Fil_path::has_suffix(IBD, name));
 
-  const auto ptr = name.c_str();
+  /* During the apply-log operation, MEB already has translated the
+  file name, so file name to space name conversion is not required. */
+#ifndef UNIV_HOTBACKUP
+  dict_name::convert_to_space(name);
+#endif /* !UNIV_HOTBACKUP */
 
-  dberr_t err =
-      fil_rename_tablespace(space_id, old_name.c_str(), ptr, new_name.c_str());
+  dberr_t err = fil_rename_tablespace(space_id, old_name.c_str(), name.c_str(),
+                                      new_name.c_str());
 
   /* Stop recovery if this does not succeed. */
   ut_a(err == DB_SUCCESS);

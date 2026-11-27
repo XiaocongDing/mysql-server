@@ -1,0 +1,25 @@
+DROP DATABASE IF EXISTS `mtr-ddl-rollback`;
+CREATE DATABASE `mtr-ddl-rollback`;
+USE `mtr-ddl-rollback`;
+CREATE TABLE t (id INT PRIMARY KEY) ENGINE=InnoDB;
+INSERT INTO t VALUES (1);
+CREATE VIEW v AS SELECT id FROM t;
+USE `mtr-ddl-rollback`;
+SET DEBUG_SYNC = 'alter_table_inplace_will_need_reset SIGNAL ddl_ready WAIT_FOR ddl_killed';
+ALTER TABLE t ENGINE=InnoDB, ALGORITHM=INPLACE;
+SET DEBUG_SYNC = 'now WAIT_FOR ddl_ready';
+KILL QUERY DDL_ID;
+SET DEBUG_SYNC = 'now SIGNAL ddl_killed';
+ERROR 70100: Query execution was interrupted
+SET DEBUG_SYNC = 'RESET';
+SELECT * FROM `mtr-ddl-rollback`.t;
+id
+1
+INSERT INTO `mtr-ddl-rollback`.t VALUES (2);
+ALTER TABLE `mtr-ddl-rollback`.t ADD COLUMN c INT NULL, ALGORITHM=INSTANT;
+SELECT * FROM `mtr-ddl-rollback`.t ORDER BY id;
+id	c
+1	NULL
+2	NULL
+DROP VIEW `mtr-ddl-rollback`.v;
+DROP DATABASE `mtr-ddl-rollback`;
